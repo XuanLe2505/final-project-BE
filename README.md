@@ -20,7 +20,7 @@ ReactJS, Redux Toolkit, NodeJS, ExpressJS, MongoDB
 
 # Link
 
-1. Github Front-End:
-2. Github Back-End:
-3. API:
-4. Website:
+1. Github Front-End: https://github.com/XuanLe2505/final-project-FE
+2. Github Back-End: https://github.com/XuanLe2505/final-project-BE
+3. API: https://innisfree-final-project.herokuapp.com
+4. Website: https://innisfree-fp.netlify.app/
