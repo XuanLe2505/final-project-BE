@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const userRoutes = require("./users.api");
-router.use("/", userRoutes);
+router.use("/user", userRoutes);
 
 const productRoutes = require("./products.api");
 router.use("/", productRoutes);

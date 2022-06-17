@@ -1,3 +1,4 @@
+const jwt = require("jsonwebtoken");
 const utilsHelper = {};
 
 // This function controls the way we response to the client
@@ -28,6 +29,13 @@ utilsHelper.catchAsync = (func) => (req, res, next) =>
 //     return fnc(req, res, next).catch((err) => (next) => err);
 //   };
 // }
+
+utilsHelper.createActivationToken = function (payload) {
+  const activationToken = jwt.sign(payload, process.env.ACTIVATION_TOKEN_SECRET_KEY, {
+    expiresIn: "15m",
+  });
+  return activationToken;
+};
 
 class AppError extends Error {
   constructor(statusCode, message, errorType) {

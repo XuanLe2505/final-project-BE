@@ -1,5 +1,6 @@
 const cloudinary = require("../helpers/cloudinary");
 const { catchAsync, sendResponse, AppError } = require("../helpers/utilities");
+const { collection } = require("../models/Category");
 const Category = require("../models/Category");
 const Product = require("../models/Product");
 
@@ -20,7 +21,6 @@ productController.addNewProduct = catchAsync(async (req, res, next) => {
 
   // Upload image to cloudinary
   const result = await cloudinary.uploader.upload(req.file.path);
-  console.log(result);
 
   let product = await Product.create({
     name,
@@ -97,36 +97,75 @@ productController.deleteProduct = catchAsync(async (req, res, next) => {
 
 // 4. User can see all product with pagination
 productController.getAllProducts = catchAsync(async (req, res, next) => {
-  let { page, limit, ...filter } = { ...req.query };
+  let { page, limit, search, sortBy, category } = req.query;
+  console.log(sortBy);
+  const arrSort = sortBy.split(".");
+  sortBy = arrSort[0];
+  const sortOrder = arrSort[1];
   page = parseInt(page) || 1;
   limit = parseInt(limit) || 12;
 
-  const filterCondition = [{ isDeleted: false }];
+  const options = [{ $match: { isDeleted: false } }];
 
-  if (filter["category"]) {
-    const category = await Category.findOne({ name: filter["category"] });
-    let subCategories = await Category.find({ parent: category._id });
-    subCategories = subCategories.map((category) => category._id);
-    filterCondition.push({
-      category: { $in: subCategories },
+  if (category) {
+    const categoryName = await Category.findOne({ name: category });
+    if (categoryName.parent === null) {
+      let subCategories = await Category.find({ parent: categoryName._id });
+      subCategories = subCategories.map((category) => category._id);
+      options.push({
+        $match: {
+          category: { $in: subCategories },
+        },
+      });
+    } else {
+      options.push({
+        $match: {
+          category: categoryName._id,
+        },
+      });
+    }
+  }
+
+  if (search && search !== "") {
+    options.push({
+      $match: {
+        $or: [{ name: { $regex: search, $options: "i" } }],
+      },
+    });
+  } else {
+    delete search;
+  }
+
+  if (sortBy && sortOrder) {
+    const sort = {};
+    sort[sortBy] = sortOrder === "asc" ? 1 : -1;
+    options.push({
+      $sort: sort,
+    });
+  } else {
+    options.push({
+      $sort: { createdAt: -1 },
     });
   }
 
-  const filterCritera = filterCondition.length ? { $and: filterCondition } : {};
-
-  const countProduct = await Product.countDocuments(filterCritera);
-  const totalPage = Math.ceil(countProduct / limit);
   const offset = limit * (page - 1);
-  const productsList = await Product.find(filterCritera)
-    .sort({ createAt: -1 })
-    .skip(offset)
-    .limit(limit);
+  options.push({
+    $facet: {
+      total: [{ $group: { _id: null, count: { $sum: 1 } } }],
+      pagination: [{ $skip: offset }, { $limit: limit }],
+    },
+  });
+
+  const products = await Product.aggregate(options);
+
+  const totalProducts = products[0] ? products[0].total[0].count : 0;
+  const totalPage = Math.ceil(totalProducts / limit);
 
   return sendResponse(
     res,
     200,
     true,
-    { productsList, currentPage: page, countProduct, totalPage },
+    { products: products[0].pagination, totalProducts, currentPage: page, totalPage },
     null,
     "get all products successfully"
   );
